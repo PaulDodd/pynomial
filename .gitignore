@@ -91,3 +91,6 @@ ENV/
 # MacOS stuff
 .DS_Store
 *.tar
+
+# Visualization files
+*.pos

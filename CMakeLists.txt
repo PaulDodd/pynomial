@@ -1,50 +1,159 @@
-cmake_minimum_required (VERSION 2.8)
+CMAKE_MINIMUM_REQUIRED(VERSION 2.8.0 FATAL_ERROR)
+
 if (CMAKE_MAJOR_VERSION VERSION_GREATER 2)
-    if(COMMAND cmake_policy)
-        cmake_policy(SET CMP0003 NEW)
-        cmake_policy(SET CMP0026 OLD)
-        cmake_policy(SET CMP0042 OLD)
-    endif(COMMAND cmake_policy)
+if(COMMAND cmake_policy)
+    cmake_policy(SET CMP0003 NEW)
+    cmake_policy(SET CMP0026 OLD)
+    cmake_policy(SET CMP0042 OLD)
+    set(CMAKE_MACOSX_RPATH ON)
+endif(COMMAND cmake_policy)
 endif()
-project (pynomial)
 
-#set some options
-# option(PYNOMIAL_BUILD_SHARED_LIBS "Build shared libraries." ON)
-# set(PYNOMIAL_BUILD_SHARED_LIBS ON) # right now this is the only option.
-# option(PYNOMIAL_INSTALL_PYTHON_USER "Install the python module into the user site-packages directory" ON)
+project (PYNOMIAL)
+option(INSTALL_SITE OFF "install pynomial as a site package")
+# bring in custom modules
+add_subdirectory (CMake)
 
-# The version number.
-set (PYNOMIAL_VERSION_MAJOR 0)
-set (PYNOMIAL_VERSION_MINOR 0)
+# setup version tagging info
+# include (CMake_version_options.cmake)
 
-# find dependencies
-set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_MODULE_PATH})
 
-#find python
-include(PythonSetup)
-# add include directories
-include_directories(${PYTHON_INCLUDE_DIRS})
-list(APPEND LINK_LIBRARIES ${PYTHON_LIBRARIES})
-
-# find eigen3
-find_package(eigen3)
-find_package(jansson)
-if(JANSSON_FOUND)
-    include_directories(${JANSSON_INCLUDE_DIRS})
-    list(APPEND LINK_LIBRARIES ${JANSSON_LIBRARIES})
-endif(JANSSON_FOUND)
+# Handle user build options
+# include (CMake_build_options.cmake)
 
 # setup the install directories
-set(DATA_INSTALL_DIR "share/${PROJECT_NAME}")
-set(LIB_INSTALL_DIR "lib${LIB_SUFFIX}/${PROJECT_NAME}")
-set(LIB_BASE_INSTALL_DIR "lib${LIB_SUFFIX}")
-set(BIN_INSTALL_DIR "bin")
-set(INC_INSTALL_DIR "include/${PROJECT_NAME}")
-set(PYNOMIAL_PYTHON_MODULE_DIR ${PYTHON_SITEDIR}/${PROJECT_NAME})
+# include (CMake_install_options.cmake)
 
-set(ICP_SRC_DIR "extern/libicp/src")
+#################################
+## setup python library and executable
+# setup MPI support
+# include (MPISetup)
+# find the python libraries to link to
+include(PNPythonSetup)
 
-# The project directories.
-include_directories(${PROJECT_INCLUDE_DIR})
+if (INSTALL_SITE)
+    SET(CMAKE_INSTALL_PREFIX ${PYTHON_SYSTEM_SITE} CACHE PATH "Python site installation directory" FORCE)
+    message(STATUS "Setting installation site dir: ${CMAKE_INSTALL_PREFIX}")
+ENDIF()
 
-#end
+set(PYTHON_MODULE_BASE_DIR "pynomial")
+
+# Find CUDA and set it up
+# include (PNCUDASetup)
+# Set default CFlags
+include (PNCFlagsSetup)
+# include some os specific options
+# include (PNOSSpecificSetup)
+# setup common libraries used by all targets in this project
+include (PNCommonLibsSetup)
+# setup numpy
+include (PNNumpySetup)
+# macros
+include (PNMacros)
+
+find_package(chull REQUIRED)
+if(NOT CHULL_FOUND)
+    message( FATAL_ERROR "Could not find chull." )
+endif()
+include_directories(${CHULL_INCLUDE_DIR} SYSTEM)
+find_package(eigen3 REQUIRED)
+if(NOT EIGEN_FOUND)
+    message( FATAL_ERROR "Could not find eigen." )
+endif()
+include_directories(${EIGEN_INCLUDE_DIR} SYSTEM)
+
+# Configure some source files, include directories, and create variables listing all source files
+#################################
+## Setup include directories and file lists for sub directories
+include_directories(${PYNOMIAL_SOURCE_DIR}
+                    ${PYNOMIAL_SOURCE_DIR}/pynomial/extern/cereal/include
+                    ${PYNOMIAL_BINARY_DIR}/pynomial/include)
+
+exec_program("date +%x" OUTPUT_VARIABLE COMPILE_DATE)
+
+# preprocessor flags
+# include (CMake_preprocessor_flags.cmake)
+
+set (UPDATE_SUBMODULES 0 CACHE BOOL "Update git submodules for dependency projects")
+
+if (UPDATE_SUBMODULES)
+  message(STATUS "Updating git submodules")
+  execute_process(COMMAND git submodule update --init
+                  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+else (UPDATE_SUBMODULES)
+  message(STATUS "Not updating git submodules")
+endif (UPDATE_SUBMODULES)
+
+set(cmake_files CMake/pynomial/PNCFlagsSetup.cmake
+                CMake/pynomial/PNCommonLibsSetup.cmake
+                # CMake/pynomial/PNCUDASetup.cmake
+                CMake/pynomial/test.cc
+                CMake/pynomial/PNMacros.cmake
+                # CMake/pynomial/PNMPISetup.cmake
+                CMake/pynomial/PNNumpySetup.cmake
+                # CMake/pynomial/PNOSSpecificSetup.cmake
+                CMake/pynomial/PNPythonSetup.cmake
+                CMake/git/FindGit.cmake
+                CMake/git/GetGitRevisionDescription.cmake
+                # CMake/libgetar/Findlibgetar.cmake
+                # CMake/thrust/FindThrust.cmake
+                # CMake_build_options.cmake
+                # CMake_install_options.cmake
+                # CMake_preprocessor_flags.cmake
+                # CMake_src_setup.cmake
+                # CMake_version_options.cmake
+   )
+
+# copy cmake scripts we currently use into build directory
+MACRO(copy_cmake file)
+    add_custom_command (
+        OUTPUT pynomial/${file}
+        POST_BUILD
+        COMMAND    ${CMAKE_COMMAND}
+        ARGS       -E copy ${CMAKE_CURRENT_SOURCE_DIR}/${file} ${CMAKE_CURRENT_BINARY_DIR}/pynomial/${file}
+        COMMENT    "Copy pynomial/${file}"
+    )
+ENDMACRO(copy_cmake)
+
+# install headers in installation target
+install(FILES ${cmake_files}
+        DESTINATION ${PYTHON_MODULE_BASE_DIR}
+       )
+
+# copy headers into build directory
+foreach(file ${cmake_files})
+    copy_cmake(${file})
+endforeach()
+
+# configure_file(pynomial_cache.cmake.in
+#     ${PYNOMIAL_BINARY_DIR}/pynomial/CMake/pynomial/pynomial_cache.cmake)
+
+# install(FILES ${PYNOMIAL_BINARY_DIR}/pynomial/CMake/pynomial/pynomial_cache.cmake
+#         DESTINATION ${PYTHON_MODULE_BASE_DIR}/CMake/pynomial)
+
+add_custom_target(copy_cmake ALL
+    DEPENDS ${cmake_files})
+
+################################
+# set up unit tests
+# enable_testing()
+# option(BUILD_TESTING "Build unit tests" ON)
+# if (BUILD_TESTING)
+#      # add test_all to the ALL target
+#      add_custom_target(test_all ALL)
+#
+# endif (BUILD_TESTING)
+
+################################
+# set up long validation tests
+# option(BUILD_VALIDATION "Build validation tests" OFF)
+
+################################
+## Process subdirectories
+add_subdirectory (pynomial)
+
+###############################
+## include documentation directories
+# if (ENABLE_DOXYGEN)
+#     add_subdirectory (doc)
+# endif (ENABLE_DOXYGEN)
