@@ -443,10 +443,72 @@ public:
         computeMassProps();
     }
 
-    void Set(const vector< Eigen::Vector3d >& verts, const vector< vector<int> >& faces)
+    void Set(const vector< Eigen::Vector3d >& verts, vector< vector<int> >& faces)
     {
-        m_Vertices = verts;
-        m_Faces = faces;
+        m_Vertices.clear(); m_Vertices.reserve(verts.size());
+        std::map<int, int> vmap;
+        int ct = 0;
+        for(int i = 0; i < verts.size(); i++)
+        {
+            if(vmap.find(i) == vmap.end())
+            {
+                vmap[i] = ct++;
+                m_Vertices.push_back(verts[i]);
+                for(int j = i+1; j < verts.size(); j++)
+                {
+                    if((verts[i]-verts[j]).norm() < double(1e-4))
+                    {
+                        vmap[j] = vmap[i];
+                    }
+                }
+            }
+        }
+        m_Faces.clear();
+        for(size_t i = 0; i < faces.size(); i++)
+        {
+            cwless lessfn(m_Vertices[vmap[faces[i][0]]], m_Vertices, vmap[faces[i][0]]);
+            std::vector<int> face;
+            // std::cout << i <<": ";
+            for(size_t _i = 0; _i < faces[i].size(); _i++) utils::PushUnique(face, vmap[faces[i][_i]]); //, std::cout << vmap[faces[i][_i]] << ", ";
+            // std::cout << std::endl;
+
+            std::sort(face.begin(), face.end(), lessfn);
+            std::cout << "sorted - "<< i <<": ";
+            for(size_t _i = 0; _i < face.size(); _i++)  std::cout << face[_i] << ", ";
+            std::cout << std::endl;
+
+            for(size_t _i = 0; _i < face.size(); _i++)
+            {
+                std::cout   << "vertex " << face[_i] << std::endl
+                            << m_Vertices[face[_i]] << std::endl;
+            }
+
+            if(face.size() > 3)
+            {
+                for(size_t v = 1; v < face.size()-1; v++)
+                {
+                    // std::cout << "making face: {" << face[0] << ", " << face[v] << ", " <<  face[v+1] << "}"<< std::endl;
+                    // std::cout << "making face: {" << m_Vertices[face[0]] << ", " << m_Vertices[face[v]] << ", " <<  m_Vertices[face[v+1]] << "}"<< std::endl;
+                    m_Faces.push_back(std::vector<int>({face[0], face[v], face[v+1]}));
+                }
+            }
+            else if(face.size() == 3)
+            {
+                m_Faces.push_back( face );
+            }
+            else
+            {
+                std::cout << "Faces must have at least three vertices." << std::endl;
+                std::cout << "face - "<< i <<" ( size "<< faces[i].size() <<"): ";
+                for(size_t _i = 0; _i < face.size(); _i++)  std::cout << face[_i] << ", ";
+                std::cout << std::endl;
+                for(size_t _i = 0; _i < faces[i].size(); _i++)  std::cout << faces[i][_i] << ", ";
+                std::cout << std::endl;
+
+                throw(std::runtime_error("Error: Can not set Polyhedron!"));
+            }
+        }
+        sortFaces();
         computeVertFaces();
         computeMassProps();
     }
@@ -482,6 +544,20 @@ private:
                 if(std::find(m_Faces[f].begin(), m_Faces[f].end(), v) != m_Faces[f].end())
                 {
                     vf.push_back(f);
+                }
+            }
+            if(vf.size() <= 2)
+            {
+                std::cout   << "v = " << v << std::endl
+                            << "vfs = " << vf.size() << std::endl
+                            << "vf: ";
+                for(auto ii : vf ) std::cout << ii << ", ";
+                std::cout   << std::endl
+                            << "faces:" << std::endl;
+                for(auto& f : m_Faces ) {
+                    for( auto fi : f)
+                        std::cout << fi << ", ";
+                    std::cout << std::endl;
                 }
             }
             assert(vf.size() > 2);
@@ -557,7 +633,6 @@ public:
         // e' = m_AdjFaceIndices
         // m_AdjFaceIndices' = m_Edges
         // faces' = // list of faces that contain the v, then sort faces.
-        std::cout << "couputing the dual of " << m_Name << std::endl;
 
         double r2 = radius*radius;
         std::vector< Eigen::Vector3d > verts(m_Faces.size());
@@ -579,7 +654,8 @@ public:
             // std::cout << "Vert norm: " << verts[f].norm() << std::endl;
         }
 
-        dual.Set(verts, m_VertFaces);
+        // std::vector< std::vector<int> > temp(m_VertFaces); //TODO: remove this expensive copy
+        dual.Set(verts);
         dual.SetName(m_Name + "-Dual");
 
     }
@@ -635,14 +711,14 @@ inline void intersection(const Polyhedron& A, const Polyhedron& B, const Eigen::
 
     vector< Eigen::Vector3d > verts(Na + Nb);
     // std::cout << "A* verts("<< Na << "): "<< std::endl;
-    for(int i = 0; i < dA.GetVertices().size(); i++){
+    for(int i = 0; i < Na; i++){
         // std::cout << dA.GetVertices()[i] << "\n" << std::endl;
         verts[i] = dA.GetVertices()[i];
     }
-    // std::cout << "B* verts("<< Na << "): "<< std::endl;
-    for(int i = 0; i < dB.GetVertices().size(); i++){
+    // std::cout << "B* verts("<< Nb << "): "<< std::endl;
+    for(int i = 0; i < Nb; i++){
         // std::cout << dB.GetVertices()[i] << "\n" << std::endl;
-        verts[i+Na] = dA.GetVertices()[i];
+        verts[i+Na] = dB.GetVertices()[i];
     }
     try{
         temp.Set(verts);
@@ -659,7 +735,6 @@ inline void intersection(const Polyhedron& A, const Polyhedron& B, const Eigen::
         std::cerr << "could not compute dual for dual union" << std::endl;
         throw(error);
     }
-
 }
 
 

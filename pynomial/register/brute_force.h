@@ -112,7 +112,7 @@ class RegisterBruteForce  // : public Register
             //
             RandomNumber<std::mt19937_64> rng;
             double rmsd_min = -1.0;
-            std::cout << "making "<< m_shuffles << " trial moves" << std::endl;
+            // std::cout << "making "<< m_shuffles << " trial moves" << std::endl;
             for(size_t shuffles = 0; shuffles < m_shuffles; shuffles++)
             {
                 int p0 = 0, p1 = 0, p2 = 0;
