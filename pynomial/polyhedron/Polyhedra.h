@@ -198,7 +198,7 @@ class CDihedralAngle //: public json::CJSONValueObject<CDihedralAngle>
     size_t m_Face1;
     double m_Angle;
     public:
-        CDihedralAngle() : /*CJSONValueObject<CDihedralAngle>("", this),*/ m_Face0(0), m_Face1(0), m_Angle(0.0) { /*SetupJSONObject();*/ }
+        CDihedralAngle(size_t f0, size_t f1, double theta) : /*CJSONValueObject<CDihedralAngle>("", this),*/ m_Face0(f0), m_Face1(f1), m_Angle(theta) { /*SetupJSONObject();*/ }
         CDihedralAngle(const CDihedralAngle& src) : /*CJSONValueObject<CDihedralAngle>("", this),*/ m_Face0(0), m_Face1(0), m_Angle(0.0) { CopyFrom(src); }
         ~CDihedralAngle() {}
         CDihedralAngle& CopyFrom(const CDihedralAngle& src) { m_Face0 = src.GetFace0(); m_Face1 = src.GetFace1(); m_Angle = src.GetAngle(); return *this; }
@@ -223,6 +223,7 @@ class Polyhedron //: public json::CJSONValueObject<CPolyhedron>
 public:
     Polyhedron(string name="Polyhedron") : m_Name(name) //: CJSONValueObject<Polyhedron>("Polyhedron", this)
     {
+        m_Graph.AddNetworkType(graph::Undirected);
         // #ifdef c_plus_plus_11
         // utils::rng_util::seed_generator(rng);
         // #endif
@@ -233,8 +234,7 @@ public:
                 string name="Polyhedron") : m_Name(name)
     {
         // compute convex hull and set the other data structures.
-        // std::vector< std::vector<int> > faces;
-        // Set(points, faces);
+        m_Graph.AddNetworkType(graph::Undirected);
         Set(points);
     }
 
@@ -303,7 +303,7 @@ public:
         }
         return m_Edges.size();
     }
-
+*/
     vector<int> FindFaces(int v1, int v2)
     {
         vector<int> retval;
@@ -327,7 +327,7 @@ public:
         }
         return false;
     }
-*/
+
     void PrintInfo()
     {
         cout << "Polyhedron : " << m_Name << endl;
@@ -516,9 +516,32 @@ public:
 private:
     void computeMassProps()
     {
+        m_Graph.Initialize(m_Vertices.size());
+        // requires that the faces are sorted and triangulated.
         mass_properties<Polyhedron> mp(*this);
         m_volume = mp.getVolume();
         m_Centroid = mp.getCenterOfMass();
+
+        // also set the dihedrals and adjacency information.
+        m_DihedralAngles.clear();
+        for(int i = 0; i < m_Faces.size(); i++)
+        {
+            int n = m_Faces[i].size();
+            for(int v = 0; v < n; v++)
+            {
+                std::vector<int> faces = FindFaces(m_Faces[i][v], m_Faces[i][(v+1)%n]);
+                assert(faces.size() == 2);
+                if(faces[0] < i) continue;
+                m_Graph.AddEdge(m_Faces[i][v], m_Faces[i][(v+1)%n]);
+                Eigen::Vector3d n0 = chull::getOutwardNormal(m_Vertices, m_Centroid, m_Faces[faces[0]]);
+                Eigen::Vector3d n1 = -chull::getOutwardNormal(m_Vertices, m_Centroid, m_Faces[faces[1]]);
+                n0.normalize();
+                n1.normalize();
+                double cosd = n0.dot(n1); // cos(-pi) to cos(pi).
+                // std::cout << "(" << faces[0] << ", " << faces[1] << "): " << acos(cosd) << std::endl;
+                m_DihedralAngles.push_back(CDihedralAngle(faces[0], faces[1], acos(cosd)));
+            }
+        }
     }
 
     void computeVertFaces()
@@ -603,8 +626,6 @@ private:
             return bFound;
         }
 
-        const vector< vector<int> >& AdjFaceIndices() { return m_AdjFaceIndices; }
-
         int FindConnectingEdge( const int& f1, const int& f2)
         {
             for(size_t e = 0; e < NumEdges(); e++)
@@ -618,7 +639,13 @@ private:
 
         const vector<CDihedralAngle>& GetDihedrals() const { return m_DihedralAngles; }
 */
+
 public:
+
+    const vector< vector<int> >& AdjFaceIndices() { return m_AdjFaceIndices; }
+
+    const vector<CDihedralAngle>& GetDihedrals() const { return m_DihedralAngles; }
+
     void Dual(Polyhedron& dual, const Eigen::Vector3d& origin, double radius) const
     {
         // Assume the origin is inside the polyhedron
@@ -659,6 +686,7 @@ public:
         dual.SetName(m_Name + "-Dual");
 
     }
+
     void writePOS(const string& filename )
     {
         std::ofstream file(filename, std::ios_base::out);
@@ -678,7 +706,7 @@ public:
     }
 
 private:
-    // graph::CNetwork             m_Graph;
+    graph::CNetwork             m_Graph;
     string                      m_Name;
 
     vector< vector<int> >       m_Faces;
@@ -688,9 +716,9 @@ private:
     Eigen::Vector3d             m_Centroid;
 
     // vector< vector<int> >       m_Edges;
-    // vector< vector<int> >       m_AdjFaceIndices;
+    vector< vector<int> >       m_AdjFaceIndices;
     // vector<int>                 m_FaceShapeIndices;
-    // vector<CDihedralAngle>      m_DihedralAngles;
+    vector<CDihedralAngle>      m_DihedralAngles;
     // vector< vector< vector<double> > >     m_FaceShape;
 };
 

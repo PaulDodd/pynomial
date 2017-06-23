@@ -2,6 +2,8 @@
 #include "Polyhedra.h"
 #include "Net.h"
 #include <pynomial/extern/pybind/include/pybind11/pybind11.h>
+#include <pynomial/extern/pybind/include/pybind11/stl_bind.h>
+
 namespace pynomial{
     namespace polyhedron{
         void export_polyhedron_module(pybind11::module& m)
@@ -15,7 +17,15 @@ namespace pynomial{
                 .def("Volume", &Polyhedron::Volume)
                 .def("Centroid", &Polyhedron::Centroid)
                 .def("Vertices", &Polyhedron::Vertices)
+                .def("GetDihedrals", &Polyhedron::GetDihedrals)
             ;
+            pybind11::class_<CDihedralAngle, std::shared_ptr<CDihedralAngle> >(m,"_dihedral_angles")
+                .def(pybind11::init<size_t, size_t, double>())
+                .def("Face0", &CDihedralAngle::GetFace0)
+                .def("Face1", &CDihedralAngle::GetFace1)
+                .def("Angle", &CDihedralAngle::GetAngle)
+                ;
+            pybind11::bind_vector<CDihedralAngle>(m,"dihedral_angle_vector");
         }
     }
 }
