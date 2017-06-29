@@ -18,6 +18,7 @@ using std::vector;
 
 typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> matrix;
 
+// TODO: make these functions templates and move to a different location.
 inline matrix CenterOfMass(const matrix& P)
 {
     // Assumes that P = (v**T) if v is a column vector.  or in other notation  P = [x1, y1, z1; ...]
