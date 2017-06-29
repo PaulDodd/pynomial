@@ -26,5 +26,17 @@ namespace pynomial{
                 .def("pair_distance", &NN::pair_distance)
             ;
         }
+
+        void export_distance_module(pybind11::module& m)
+        {
+            pybind11::class_<edit_path<double>, std::shared_ptr<edit_path<double> > > cls(m,"_edit_path_d");
+            cls
+                .def(pybind11::init<size_t, size_t, double>())
+                .def_readonly("forward", &edit_path<double>::forward)
+                .def_readonly("reverse", &edit_path<double>::reverse)
+                .def_readonly("cost", &edit_path<double>::cost);
+            cls.attr("notset") = pybind11::int_(edit_path<double>::notset);
+            cls.attr("null") = pybind11::int_(edit_path<double>::null);
+        }
     }
 }
