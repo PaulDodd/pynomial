@@ -218,6 +218,7 @@ class AdjacencyList
 class CNetwork //: public json::CJSONValueObject<CNetwork>
 {
     public:
+        typedef size_t vertex_info;
         class edge_info
         {
             public:
@@ -1292,6 +1293,10 @@ class CNetwork //: public json::CJSONValueObject<CNetwork>
 
         bool        IsInitialized()     const   { return m_bInitialized; }
 
+        edge_iterator begine() const { return edge_iterator(this); }
+
+        vertex_iterator beginv(size_t src, vertex_iterator::AlgorithmType type=vertex_iterator::AlgorithmType::BreadthFirstSearch) const { return vertex_iterator(this, src, type); }
+
         size_t      NumNodes() const { return size_t(m_AdjMat.rows()); }
         size_t      NumEdges() const
         {
@@ -1966,6 +1971,116 @@ inline bool IsCycle(const CNetwork& net, unsigned int n)
     iso.ComputeMatching();
     return iso.IsIsomorphic();
 }
+
+//TODO: Think about adding a VertexLabel and EdgeLabel function classes to the network
+
+template<typename ValueType>
+struct begin{
+    void operator()(const ValueType&); // undefined!
+};
+
+template<>
+struct begin<CNetwork::vertex_info>{
+    CNetwork::vertex_iterator operator()(const CNetwork& g, size_t src=0, CNetwork::vertex_iterator::AlgorithmType type=CNetwork::vertex_iterator::AlgorithmType::BreadthFirstSearch) { return g.beginv(src, type); }
+};
+
+template<>
+struct begin<CNetwork::edge_info>{
+    CNetwork::edge_iterator operator()(const CNetwork& g) { return g.begine(); }
+};
+
+struct less_edge
+{
+    bool operator()(const CNetwork::edge_info& a, const CNetwork::edge_info& b)
+    {
+        return (a.source < b.source) ? true : ((a.source == b.source) ? a.target < b.target : false);
+    }
+};
+
+template< typename KeyType, typename ValueType>
+class LabelFunction /* a function or container class that maps edges to values of type ValueType */
+{
+public:
+
+    typedef typename std::function< ValueType(const KeyType&) > GeneratorType;
+
+    typedef typename std::map<KeyType, ValueType, less_edge> CacheType;
+
+    typedef typename CacheType::iterator CacheIterator;
+
+    LabelFunction(const CNetwork& g, GeneratorType generator, bool lazy = true) : m_Graph(g), m_Generator(generator), m_bLazy(lazy)
+    {
+        if(!m_bLazy)
+        {
+            for(auto iter = m_begin(m_Graph); iter.IsValid(); iter++)
+            {
+                m_Cache[*iter] = m_Generator(*iter);
+            }
+        }
+    }
+
+    LabelFunction(const CNetwork& g, CacheType mapping) : m_Graph(g), m_Cache(std::move(mapping)), m_bLazy(false){}
+
+    const ValueType& operator()(const KeyType& key)
+    {
+        CacheIterator found = m_Cache.find(key);
+        if(found != m_Cache.end()) // we found it so we can just return.
+            return *found;
+
+        // right now we will be strict about this
+        if(!m_bLazy)
+            throw std::runtime_error("Error! Could not find key and lazy evaluation is enabled.");
+
+        if(m_Generator.target_type() == nullptr) //  the generator function is set and can be called.
+        {
+            m_Cache[key] = m_Generator(key);
+            return m_Cache[key];
+        }
+        else // function is no good!
+        {
+            throw std::runtime_error("Error! The Generator method is not set!");
+        }
+    }
+
+    void update()
+    {
+        for(auto iter = m_begin(m_Graph); iter.IsValid(); iter++)
+        {
+            m_Cache[*iter] = m_Generator(*iter);
+        }
+    }
+
+protected:
+    const CNetwork& m_Graph;
+    GeneratorType m_Generator;
+    CacheType m_Cache;
+    bool m_bLazy;
+    begin<ValueType> m_begin;
+};
+
+
+template< typename ValueType >
+class EdgeLabel : public LabelFunction<CNetwork::edge_info, ValueType>
+{
+public:
+    typedef typename LabelFunction<CNetwork::edge_info, ValueType>::GeneratorType GeneratorType;
+    typedef typename LabelFunction<CNetwork::edge_info, ValueType>::CacheType CacheType;
+    EdgeLabel(const CNetwork& g, GeneratorType generator, bool lazy = true) : LabelFunction<CNetwork::edge_info, ValueType>(g, generator, lazy) {}
+    EdgeLabel(const CNetwork& g, const CacheType& mapping) :  LabelFunction<CNetwork::edge_info, ValueType>(g, mapping) {}
+};
+
+template< typename ValueType >
+class VertexLabel : public LabelFunction<CNetwork::vertex_info, ValueType>
+{
+public:
+    typedef typename LabelFunction<CNetwork::vertex_info, ValueType>::GeneratorType GeneratorType;
+    typedef typename LabelFunction<CNetwork::vertex_info, ValueType>::CacheType CacheType;
+    VertexLabel(const CNetwork& g, GeneratorType generator, bool lazy = true) : LabelFunction<CNetwork::vertex_info, ValueType>(g, generator, lazy) {}
+    VertexLabel(const CNetwork& g, const CacheType& mapping) :  LabelFunction<CNetwork::vertex_info, ValueType>(g, mapping) {}
+};
+
+
+
 
 
 }
