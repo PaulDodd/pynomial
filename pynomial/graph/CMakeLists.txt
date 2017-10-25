@@ -5,6 +5,7 @@ set(_graph_headers
     module.h
     Matrix.h
     Network.h
+    utils.h
     )
 
 

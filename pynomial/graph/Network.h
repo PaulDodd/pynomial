@@ -1,6 +1,6 @@
 //
 //  Network.h
-//  SharedFolding
+//  pynomial
 //
 //  Created by Paul M Dodd on 11/9/13.
 //  Copyright (c) 2013 Paul Dodd. All rights reserved.
@@ -12,8 +12,8 @@
 //
 //
 
-#ifndef SharedFolding_Network_h
-#define SharedFolding_Network_h
+#ifndef pynomial_Network_h
+#define pynomial_Network_h
 
 // #include "SharedInclude.h"
 #include <iostream>

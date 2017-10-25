@@ -3,8 +3,8 @@
 //  Created by Paul M Dodd on 2/22/13.
 //
 
-#ifndef folding_Polyhedra_h
-#define folding_Polyhedra_h
+#ifndef pynomial_Polyhedra_h
+#define pynomial_Polyhedra_h
 
 #include <vector>
 #include <string>
@@ -15,12 +15,12 @@
 #include <eigen3/Eigen/Dense>
 #include <eigen3/Eigen/Sparse>
 #include <chull/chull.h>
-#include "../graph/Network.h"
-#include "../register/brute_force.h"
+#include "pynomial/graph/Network.h"
+#include "pynomial/graph/utils.h"
+#include "pynomial/register/brute_force.h"
 // #include "../geometry/geometry.h"
-
 //#include "StatDist.h"
-#include "../graph/utils.h"
+
 namespace pynomial{
 namespace polyhedron {
 using std::vector;
@@ -104,6 +104,7 @@ protected:
 /*
     algorithm taken from
     http://www.geometrictools.com/Documentation/PolyhedralMassProperties.pdf
+    NOTE: The moment of inertia tensor is calculated relative to the center of mass of the polyhedron.
 */
     virtual void compute()
         {
