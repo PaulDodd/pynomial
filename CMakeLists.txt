@@ -14,16 +14,6 @@ option(INSTALL_SITE OFF "install pynomial as a site package")
 # bring in custom modules
 add_subdirectory (CMake)
 
-# setup version tagging info
-# include (CMake_version_options.cmake)
-
-
-# Handle user build options
-# include (CMake_build_options.cmake)
-
-# setup the install directories
-# include (CMake_install_options.cmake)
-
 #################################
 ## setup python library and executable
 # setup MPI support
@@ -86,22 +76,10 @@ endif (UPDATE_SUBMODULES)
 
 set(cmake_files CMake/pynomial/PNCFlagsSetup.cmake
                 CMake/pynomial/PNCommonLibsSetup.cmake
-                # CMake/pynomial/PNCUDASetup.cmake
                 CMake/pynomial/test.cc
                 CMake/pynomial/PNMacros.cmake
-                # CMake/pynomial/PNMPISetup.cmake
                 CMake/pynomial/PNNumpySetup.cmake
-                # CMake/pynomial/PNOSSpecificSetup.cmake
                 CMake/pynomial/PNPythonSetup.cmake
-                CMake/git/FindGit.cmake
-                CMake/git/GetGitRevisionDescription.cmake
-                # CMake/libgetar/Findlibgetar.cmake
-                # CMake/thrust/FindThrust.cmake
-                # CMake_build_options.cmake
-                # CMake_install_options.cmake
-                # CMake_preprocessor_flags.cmake
-                # CMake_src_setup.cmake
-                # CMake_version_options.cmake
    )
 
 # copy cmake scripts we currently use into build directory
@@ -125,35 +103,9 @@ foreach(file ${cmake_files})
     copy_cmake(${file})
 endforeach()
 
-# configure_file(pynomial_cache.cmake.in
-#     ${PYNOMIAL_BINARY_DIR}/pynomial/CMake/pynomial/pynomial_cache.cmake)
-
-# install(FILES ${PYNOMIAL_BINARY_DIR}/pynomial/CMake/pynomial/pynomial_cache.cmake
-#         DESTINATION ${PYTHON_MODULE_BASE_DIR}/CMake/pynomial)
-
 add_custom_target(copy_cmake ALL
     DEPENDS ${cmake_files})
 
 ################################
-# set up unit tests
-# enable_testing()
-# option(BUILD_TESTING "Build unit tests" ON)
-# if (BUILD_TESTING)
-#      # add test_all to the ALL target
-#      add_custom_target(test_all ALL)
-#
-# endif (BUILD_TESTING)
-
-################################
-# set up long validation tests
-# option(BUILD_VALIDATION "Build validation tests" OFF)
-
-################################
 ## Process subdirectories
 add_subdirectory (pynomial)
-
-###############################
-## include documentation directories
-# if (ENABLE_DOXYGEN)
-#     add_subdirectory (doc)
-# endif (ENABLE_DOXYGEN)
