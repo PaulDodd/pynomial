@@ -20,26 +20,26 @@ typedef Eigen::VectorXd DefaultPointType;
 template<class PointType>
 struct norm_fn : std::function<double(const PointType&)>
 {
-    double operator()(const PointType& p) { return p.norm(); }
+    double operator()(const PointType& p) const { return p.norm(); }
 };
 
 template<class PointType>
 struct norm2_fn : std::function<double(const PointType&)>
 {
-    double operator()(const PointType& p) { return p.squaredNorm(); }
+    double operator()(const PointType& p) const { return p.squaredNorm(); }
 };
 
 
 template<class PointType>
 struct dot_fn : std::function<double(const PointType&,const PointType&)>
 {
-    double operator()(const PointType& a,const PointType& b) { return a.dot(b); }
+    double operator()(const PointType& a,const PointType& b) const { return a.dot(b); }
 };
 
 template<class PointType>
 struct cross_fn : std::function<PointType(const PointType&, const PointType&)>
 {
-    PointType operator()(const PointType& a, const PointType& b) { return a.cross(b); }
+    PointType operator()(const PointType& a, const PointType& b) const { return a.cross(b); }
 };
 
 
@@ -64,10 +64,10 @@ public:
     Sphere( const Sphere& s) : m_Radius(s.GetRadius()){}
 // Accessors
     unsigned int dim() {return m_dim;}
-    double GetRadius() { return m_Radius; }
+    double GetRadius() const { return m_Radius; }
     void SetRadius(double r) { m_Radius = r; }
 // Helpers
-    PointType project(const PointType& v) { return (m_Radius / norm(v)) * v; }
+    PointType project(const PointType& v) const { return (m_Radius / norm(v)) * v; }
     // TODO: other useful methods
     // -- uniform points on a sphere
     // -- random uniform points on a sphere
@@ -86,11 +86,10 @@ class SphereArc
     dot_fn<PointType> dot;
     cross_fn<PointType> cross;
 public:
-    SphereArc(const Sphere<PointType>& s, const PointType& p1, const PointType& p2)
+    SphereArc(const Sphere<PointType>& s, const PointType& p1, const PointType& p2) : m_Sphere(s)
     {
         assert(p1.rows() == dim &&  p2.rows() == dim);
         assert(s.dim() == 3);
-        m_Sphere = s;
         #if copy == deep
         m_p1 = m_Sphere.project(p1);
         m_p2 = m_Sphere.project(p2);
@@ -102,7 +101,10 @@ public:
 
 // parameterizations
     // s(t) = c1(t)*p1 + c2(t)*p2
-    // PointType Slerp(double t);
+    PointType Slerp(double t)
+    {
+        return DefaultPointType::Zero();
+    }
 
     // theta(phi)
     // double Theta(double phi);
@@ -137,22 +139,22 @@ public:
 
     double MinPhi()
     {
-        return min(Cartesian2Spherical(m_p1)[2], Cartesian2Spherical(m_p2)[2]);
+        return std::min(Cartesian2Spherical(m_p1)[2], Cartesian2Spherical(m_p2)[2]);
     }
 
     double MaxPhi()
     {
-        return max(Cartesian2Spherical(m_p1)[2], Cartesian2Spherical(m_p2)[2]);
+        return std::max(Cartesian2Spherical(m_p1)[2], Cartesian2Spherical(m_p2)[2]);
     }
 
     double MinTheta()
     {
-        return min(Cartesian2Spherical(m_p1)[1], Cartesian2Spherical(m_p2)[1]);
+        return std::min(Cartesian2Spherical(m_p1)[1], Cartesian2Spherical(m_p2)[1]);
     }
 
     double MaxTheta()
     {
-        return max(Cartesian2Spherical(m_p1)[1], Cartesian2Spherical(m_p2)[1]);
+        return std::max(Cartesian2Spherical(m_p1)[1], Cartesian2Spherical(m_p2)[1]);
     }
 
 private:

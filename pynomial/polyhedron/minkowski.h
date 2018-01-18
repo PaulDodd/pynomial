@@ -50,9 +50,20 @@ public:
     SlopeDiagram(const Polyhedron& P) : m_P(P)
     {
     }
+
+private:
     struct align
     {
+        void type_1(SlopeDiagram& sdr1, SlopeDiagram& sdr2, Eigen::Transform& R)
+        {
+        }
+
+        void type_2(SlopeDiagram& sdr1, SlopeDiagram& sdr2)
+        {
+        }
+        
     };
+
 private:
     const Polyhedron& m_P;
     Eigen::MatrixXd m_SphericalPoints;              // correspond to the face normals
