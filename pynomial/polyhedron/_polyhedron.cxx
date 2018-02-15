@@ -1,6 +1,7 @@
 
 #include "Polyhedra.h"
 #include "Net.h"
+#include "minkowski.h"
 #include "module.h"
 #include <pynomial/extern/pybind/include/pybind11/pybind11.h>
 #include <pynomial/extern/pybind/include/pybind11/stl_bind.h>
@@ -14,6 +15,7 @@ PYBIND11_PLUGIN(_polyhedron)
     pybind11::module m("_polyhedron");
     export_polyhedron_module(m);
     m.def("intersection", &intersection);
+    m.def("SimilarityMeasure", &SimilarityMeasure);
     // export_net_module(m);
     return m.ptr();
 }
