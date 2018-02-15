@@ -23,6 +23,7 @@
 
 namespace pynomial{
 namespace polyhedron {
+typedef Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> PointMatrix;
 using std::vector;
 using std::string;
 using std::cout;
@@ -169,28 +170,28 @@ private:
     const std::vector<std::vector<int> >& faces;
 };
 
-class cwless
-{
-    const Eigen::Vector3d& reference;
-    const std::vector<Eigen::Vector3d>& pointset;
-    int refi;
-public:
-    cwless(const Eigen::Vector3d& ref, const std::vector<Eigen::Vector3d>&  points, int r) : reference(ref), pointset(points), refi(r){}
-    bool operator()(int a, int b)
-    {
-        // A few cases to consider first
-        if(a == b)
-            return false;
-        if(a == refi)
-            return true;
-        if(b == refi)
-            return false;
-        Eigen::Vector3d va, vb;
-        va = pointset[a] - pointset[refi];
-        vb = pointset[b] - pointset[refi];
-        return reference.dot(va.cross(vb)) > 0;
-    }
-};
+// class cwless
+// {
+//     const Eigen::Vector3d& reference;
+//     const std::vector<Eigen::Vector3d>& pointset;
+//     int refi;
+// public:
+//     cwless(const Eigen::Vector3d& ref, const std::vector<Eigen::Vector3d>&  points, int r) : reference(ref), pointset(points), refi(r){}
+//     bool operator()(int a, int b)
+//     {
+//         // A few cases to consider first
+//         if(a == b)
+//             return false;
+//         if(a == refi)
+//             return true;
+//         if(b == refi)
+//             return false;
+//         Eigen::Vector3d va, vb;
+//         va = pointset[a] - pointset[refi];
+//         vb = pointset[b] - pointset[refi];
+//         return reference.dot(va.cross(vb)) > 0;
+//     }
+// };
 
 
 class CDihedralAngle //: public json::CJSONValueObject<CDihedralAngle>
@@ -225,6 +226,7 @@ public:
     Polyhedron(string name="Polyhedron") : m_Name(name) //: CJSONValueObject<Polyhedron>("Polyhedron", this)
     {
         m_Graph.AddNetworkType(graph::Undirected);
+        m_FaceGraph.AddNetworkType(graph::Undirected);
         // #ifdef c_plus_plus_11
         // utils::rng_util::seed_generator(rng);
         // #endif
@@ -236,6 +238,7 @@ public:
     {
         // compute convex hull and set the other data structures.
         m_Graph.AddNetworkType(graph::Undirected);
+        m_FaceGraph.AddNetworkType(graph::Undirected);
         Set(points);
     }
 
@@ -305,7 +308,7 @@ public:
         return m_Edges.size();
     }
 */
-    vector<int> FindFaces(int v1, int v2)
+    vector<int> FindFaces(int v1, int v2) const
     {
         vector<int> retval;
         for(int f = 0; size_t(f) < m_Faces.size(); f++)
@@ -319,7 +322,7 @@ public:
         return retval;
     }
 
-    bool IsVertexInFace(const int& fid, const int& vertex)
+    bool IsVertexInFace(const int& fid, const int& vertex) const
     {
         size_t fndx = size_t(fid);
         for (size_t n = 0; n < m_Faces[fndx].size(); n++) {
@@ -329,7 +332,7 @@ public:
         return false;
     }
 
-    void PrintInfo()
+    void PrintInfo() const
     {
         cout << "Polyhedron : " << m_Name << endl;
         cout << "Faces : " << endl;
@@ -384,18 +387,97 @@ public:
 
     const vector< Eigen::Vector3d >& GetVertices() const { return m_Vertices; }
 
-    Eigen::MatrixXd Vertices(bool shift=false, bool scale=false)
+    PointMatrix Vertices(bool shift=false, bool scale=false) const
     {
         double s = scale ? pow((1.0/m_volume), (1.0/3.0)) : 1.0;
-        Eigen::MatrixXd verts(m_Vertices.size(), 3);
+        PointMatrix verts(m_Vertices.size(), 3);
         for(int i = 0; i < m_Vertices.size(); i++)
             verts.row(i) = shift ? m_Vertices[i] - m_Centroid : m_Vertices[i];
         return s*verts;
     }
 
+    void FacetNormals(PointMatrix& normals, bool bMerged=true) const
+    {
+        if(bMerged && !m_MergedFaces.size())
+            throw std::runtime_error("must merge facets before finding normals");
+        // std::cout << "merged faces size = " << m_MergedFaces.size() << std::endl;
+        const std::vector< std::vector<int> >& faces = (bMerged) ? m_MergedFaces : m_Faces;
+        normals.resize(faces.size(), 3);
+        for(int f = 0; f < faces.size(); f++)
+        {
+            normals.row(f) = chull::getOutwardNormal(m_Vertices, m_Centroid, faces[f]);
+        }
+        // std::cout << "normals: \n" << normals << std::endl;
+        // return normals;
+    }
+
+    void MergeFacets(double threshold=1e-6, bool bForce=true)
+    {
+        if(m_MergedFaces.size() && !bForce)
+            return;
+        m_MergedFaces.clear(); // clear the data.
+        m_MergedFaces.reserve(m_Faces.size());
+        double thresh = 1.0 - threshold;
+        PointMatrix normals;
+        FacetNormals(normals, false);
+        PointMatrix sim = normals * normals.transpose();
+        m_MergeMap.resize(m_Faces.size(), -1);
+        std::vector<bool> found(m_Faces.size(), false);
+        std::queue<int> worklist;
+        chull::GrahamScan<double> ghull(m_Vertices);
+        for(size_t f = 0; f < m_Faces.size(); f++)
+        {
+            if(found[f])
+                continue;
+            found[f] = true;
+            std::set<int> face;
+            graph::CNetwork::vertex_iterator bfs(&m_FaceGraph, f, graph::CNetwork::vertex_iterator::BreadthFirstSearch, [sim, thresh](int i, int j){ return sim(i,j) > thresh; });
+            for (/* bfs intialized*/; bfs.IsValid(); ++bfs)
+            {
+                // std::cout << "face " << f  << " is the same as " << *bfs << std::endl;
+                face.insert(m_Faces[*bfs].begin(), m_Faces[*bfs].end());
+                found[*bfs] = true;
+                m_MergeMap[*bfs] = m_MergedFaces.size();
+            }
+            if(face.size() > 3)
+            {
+                std::vector<int> ret;
+                ret.reserve(face.size());
+                std::back_insert_iterator< std::vector<int> > it(ret);
+                ghull.compute(it, face.begin(), face.end(), normals.row(f));
+                m_MergedFaces.push_back(ret);
+            }
+            else if(face.size() == 3)
+            {
+                std::vector<int> ret(face.begin(), face.end());
+                m_MergedFaces.push_back(ret);
+            }
+            else{
+                throw std::runtime_error("face with fewer than 3 vertices found");
+            }
+        }
+        // int i = 0;
+        // for(auto face : m_MergedFaces)
+        // {
+        //     std::cout << "face " << i++ << ": " << std::endl;
+        //     for(auto f : face)
+        //     {
+        //         std:: cout << f << ", ";
+        //     }
+        //     std::cout << std::endl;
+        // }
+        // std::cout << "done!" << std::endl;
+    }
+
     const double& Volume() { return m_volume; }
 
     const Eigen::Vector3d& Centroid() { return m_Centroid; }
+
+    void GetMergedFaceGraph(graph::CNetwork& g) const
+    {
+        std::map<size_t, size_t> _;
+        std::map<size_t, size_t> __;
+        g = m_FaceGraph.QuotientGraph(m_MergeMap, _ , __ ); }
 
     void Set(Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> verts)
     {
@@ -464,15 +546,17 @@ public:
                 }
             }
         }
+        Eigen::Vector3d vavg = Eigen::Vector3d::Zero();
+        for(auto v : m_Vertices)
+            vavg += v;
+        vavg /= double(m_Vertices.size());
         m_Faces.clear();
         for(size_t i = 0; i < faces.size(); i++)
         {
-            cwless lessfn(m_Vertices[vmap[faces[i][0]]], m_Vertices, vmap[faces[i][0]]);
             std::vector<int> face;
-            // std::cout << i <<": ";
-            for(size_t _i = 0; _i < faces[i].size(); _i++) utils::PushUnique(face, vmap[faces[i][_i]]); //, std::cout << vmap[faces[i][_i]] << ", ";
-            // std::cout << std::endl;
-
+            for(size_t _i = 0; _i < faces[i].size(); _i++) utils::PushUnique(face, vmap[faces[i][_i]]);
+            chull::counter_clockwise<double> ccw(m_Vertices[vmap[faces[i][0]]], chull::getOutwardNormal(m_Vertices, vavg, faces[i]));
+            auto lessfn = ccw.lessfn<int, decltype(m_Vertices) >(m_Vertices);
             std::sort(face.begin(), face.end(), lessfn);
             std::cout << "sorted - "<< i <<": ";
             for(size_t _i = 0; _i < face.size(); _i++)  std::cout << face[_i] << ", ";
@@ -518,6 +602,7 @@ private:
     void computeMassProps()
     {
         m_Graph.Initialize(m_Vertices.size());
+        m_FaceGraph.Initialize(m_Faces.size());
         // requires that the faces are sorted and triangulated.
         mass_properties<Polyhedron> mp(*this);
         m_volume = mp.getVolume();
@@ -541,6 +626,7 @@ private:
                 double cosd = n0.dot(n1); // cos(-pi) to cos(pi).
                 // std::cout << "(" << faces[0] << ", " << faces[1] << "): " << acos(cosd) << std::endl;
                 m_DihedralAngles.push_back(CDihedralAngle(faces[0], faces[1], acos(cosd)));
+                m_FaceGraph.AddEdge(faces[0], faces[1]);
             }
         }
     }
@@ -585,7 +671,13 @@ private:
                 }
             }
             assert(vf.size() > 2);
-            cwless lessfn(m_Vertices[v], fcenters, vf[0]);
+            auto n = m_Vertices[v];
+            n.normalize();
+            chull::PlaneRn<double, 3> support(n, m_Vertices[v]);
+            chull::counter_clockwise<double> ccw(fcenters[0], n);
+            for(size_t i = 0; i < fcenters.size(); i++)
+                fcenters[i] = support.projection(fcenters[i]);
+            auto lessfn = ccw.lessfn<int, decltype(fcenters) >(fcenters);
             std::sort(vf.begin(), vf.end(), lessfn);
             m_VertFaces[v]=vf;
         }
@@ -688,13 +780,13 @@ public:
 
     }
 
-    void writePOS(const string& filename )
+    void writePOS(const string& filename, std::ios_base::openmode mode=std::ios_base::out) const
     {
-        std::ofstream file(filename, std::ios_base::out);
+        std::ofstream file(filename, mode);
         std::stringstream ss, connections;
         ss << "def "<< m_Name << " \"poly3d " << m_Vertices.size() << " ";
         std::string center_sphere  = "def origin \"sphere 0.1 005F5F5F\"";
-        for(vector< Eigen::Vector3d >::iterator iter = m_Vertices.begin(); iter != m_Vertices.end(); iter++)
+        for(vector< Eigen::Vector3d >::const_iterator iter = m_Vertices.cbegin(); iter != m_Vertices.cend(); iter++)
             ss << (*iter)[0] << " " << (*iter)[1] << " " << (*iter)[2] << " ";
         ss << "005984FF\"";
         std::string hull  = ss.str();
@@ -708,13 +800,16 @@ public:
 
 private:
     graph::CNetwork             m_Graph;
+    graph::CNetwork             m_FaceGraph;
     string                      m_Name;
 
-    vector< vector<int> >       m_Faces;
-    vector< vector<int> >       m_VertFaces;
-    vector< Eigen::Vector3d >   m_Vertices;
-    double                      m_volume;
-    Eigen::Vector3d             m_Centroid;
+    vector< vector<int> >       m_Faces;        // these faces are always triangular
+    vector< vector<int> >       m_MergedFaces;  // these faces need not bee triangular
+    vector< vector<int> >       m_VertFaces;    // these are faces adjacent to vertex i
+    vector<size_t>       m_MergeMap;    // id of the merged face.
+    vector< Eigen::Vector3d >   m_Vertices;     // the vertex representaion of the polyhedron
+    double                      m_volume;       // the volume of the polyhedron
+    Eigen::Vector3d             m_Centroid;     // the Centroid of the polyhedron
 
     // vector< vector<int> >       m_Edges;
     vector< vector<int> >       m_AdjFaceIndices;
