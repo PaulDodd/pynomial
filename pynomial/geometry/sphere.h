@@ -1,11 +1,13 @@
 
-#ifndef pynomial_Polyhedra_h
-#define pynomial_Polyhedra_h
+#ifndef pynomial_Sphere_h
+#define pynomial_Sphere_h
 
 #include <vector>
 #include <string>
 #include <functional>
 #include <algorithm>
+#include <iostream>
+#include <type_traits>
 #include <eigen3/Eigen/Dense>
 #include <eigen3/Eigen/Sparse>
 
@@ -15,7 +17,9 @@
 namespace pynomial{
 namespace geometry{
 
-typedef Eigen::VectorXd DefaultPointType;
+enum copy_type{shallow, deep};
+
+typedef Eigen::Vector3d DefaultPointType;
 
 template<class PointType>
 struct norm_fn : std::function<double(const PointType&)>
@@ -72,31 +76,28 @@ public:
     // -- uniform points on a sphere
     // -- random uniform points on a sphere
     // -- polygons and geometry?
+
+    static Sphere<PointType> Unit() { return Sphere<PointType>(1.0); }
 private:
     double m_Radius;
     unsigned int m_dim;
 };
 
-enum copy_type{shallow, deep};
-
 template<class PointType=DefaultPointType, copy_type copy = deep>
 class SphereArc
 {
+    typedef typename std::conditional<copy == deep, PointType, const PointType&>::type point_t;
     norm_fn<PointType> norm;
     dot_fn<PointType> dot;
     cross_fn<PointType> cross;
 public:
-    SphereArc(const Sphere<PointType>& s, const PointType& p1, const PointType& p2) : m_Sphere(s)
+    SphereArc(const Sphere<PointType>& s, const PointType& p1, const PointType& p2) : m_Sphere(s), m_p1(p1), m_p2(p2)
     {
-        assert(p1.rows() == dim &&  p2.rows() == dim);
-        assert(s.dim() == 3);
-        #if copy == deep
-        m_p1 = m_Sphere.project(p1);
-        m_p2 = m_Sphere.project(p2);
-        #else
-        m_p1 = p1;
-        m_p2 = p2;
-        #endif
+        // assert(p1.rows() == dim &&  p2.rows() == dim);
+        // assert(s.dim() == 3);
+        // std::is_same<point_t, const PointType&>::value;
+        // typeid(point_t).name();
+        // std::cout << "copy type: " << typeid(point_t).name() << " " << std::boolalpha << std::is_same<point_t, const PointType&>::value << std::endl;
     }
 
 // parameterizations
@@ -113,12 +114,13 @@ public:
     // double Phi(double theta);
 
 // properties
-    bool PlaneNormal(Eigen::VectorXd& n)
+    bool PlaneNormal(Eigen::Vector3d& n) const
     {
         // equation of the plane that intersects the sphere is of the form
         // < n, x > = 0
         // where n = cross(p1, p2) / r ^ 2
         double r = m_Sphere.GetRadius();
+        // std::cout << std::hex << "p1:\n" << &m_p1 << "\np2:\n" << m_p2 << std::endl;
         n = cross(m_p1/r, m_p2/r);
         double mag = norm(n);
         // TODO: make tolerance a parameter
@@ -131,41 +133,54 @@ public:
         return true;
     }
 
-    double Length()
+    double Length() const
     {
         double r = m_Sphere.GetRadius();
         return r * acos(dot(m_p1,m_p2)/r/r);
     }
 
-    double MinPhi()
+    double MinPhi() const
     {
         return std::min(Cartesian2Spherical(m_p1)[2], Cartesian2Spherical(m_p2)[2]);
     }
 
-    double MaxPhi()
+    double MaxPhi() const
     {
         return std::max(Cartesian2Spherical(m_p1)[2], Cartesian2Spherical(m_p2)[2]);
     }
 
-    double MinTheta()
+    double MinTheta() const
     {
         return std::min(Cartesian2Spherical(m_p1)[1], Cartesian2Spherical(m_p2)[1]);
     }
 
-    double MaxTheta()
+    double MaxTheta() const
     {
         return std::max(Cartesian2Spherical(m_p1)[1], Cartesian2Spherical(m_p2)[1]);
     }
 
+    const PointType& GetP1() const { return m_p1; }
+
+    const PointType& GetP2() const { return m_p2; }
+
+    bool On(const PointType& p, bool verbose=false) const
+    {
+        double r = m_Sphere.GetRadius();
+        PointType ps = m_Sphere.project(p)/r;
+        double d1 = r*acos(dot(ps, m_p1)/r);
+        double d2 = r*acos(dot(ps, m_p2)/r);
+        if(verbose)
+        {
+            std::cout << r << ", "<< d1 << ", "<< d2 << ", "<< Length() << "\np1:\n" << m_p1 << "\np2:\n" << m_p2 << "\n ps:\n" << ps << std::endl;
+            std::cout<< "trangle check: " << fabs(Length() - d1 - d2) << std::endl;
+        }
+        return fabs(Length() - d1 - d2) < 1e-4; // triangle inequality.
+    }
+
 private:
     const Sphere<PointType>& m_Sphere;
-    #if copy == deep
-    PointType m_p1;
-    PointType m_p2;
-    #else
-    const PointType& m_p1;
-    const PointType& m_p2;
-    #endif
+    point_t m_p1;
+    point_t m_p2;
 };
 
 // // This class is the composition of spherical points, arcs, and polygons.
