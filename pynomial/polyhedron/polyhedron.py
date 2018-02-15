@@ -18,31 +18,32 @@ class Polyhedron(_polyhedron.polyhedron):
         self.Dual(d, origin, radius);
         return d;
 
-    def merge_facets(self, origin=(0,0,0), radius=1.0, threshold=1e-3):
-        try:
-            import sklearn, sklearn.cluster
-        except ImportError as err:
-            print("merge_facets requires sklearn package. ")
-            print("Error occured importing sklearn package:{}".format(str(err)))
-            raise
-        d = self.dual(origin, radius);
-        verts = d.vertices
-        clusters = sklearn.cluster.DBSCAN(eps=threshold, min_samples=1).fit(verts);
-        labels = clusters.labels_
-        assert -1 not in labels
-        # Number of clusters in labels, ignoring noise if present.
-        n_clusters_ = len(set(labels));
-        if n_clusters_ < 4:
-            assert 0
-        _verts = np.array([[0.0,0.0,0.0] for i in range(n_clusters_)]);
-        _count = [0.0]*n_clusters_
-        for i,L in enumerate(labels):
-            _verts[L] += verts[i];
-            _count[L] += 1.0 ;
-        for i in range(n_clusters_):
-            _verts[i] /= _count[i]
-        pnew = Polyhedron(_verts);
-        return pnew.dual(origin, radius)
+    def merge_facets(self, threshold=1e-3):
+        self.MergeFacets(threshold, True);
+        # try:
+        #     import sklearn, sklearn.cluster
+        # except ImportError as err:
+        #     print("merge_facets requires sklearn package. ")
+        #     print("Error occured importing sklearn package:{}".format(str(err)))
+        #     raise
+        # d = self.dual(origin, radius);
+        # verts = d.vertices
+        # clusters = sklearn.cluster.DBSCAN(eps=threshold, min_samples=1).fit(verts);
+        # labels = clusters.labels_
+        # assert -1 not in labels
+        # # Number of clusters in labels, ignoring noise if present.
+        # n_clusters_ = len(set(labels));
+        # if n_clusters_ < 4:
+        #     assert 0
+        # _verts = np.array([[0.0,0.0,0.0] for i in range(n_clusters_)]);
+        # _count = [0.0]*n_clusters_
+        # for i,L in enumerate(labels):
+        #     _verts[L] += verts[i];
+        #     _count[L] += 1.0 ;
+        # for i in range(n_clusters_):
+        #     _verts[i] /= _count[i]
+        # pnew = Polyhedron(_verts);
+        # return pnew.dual(origin, radius)
 
     @property
     def vertices(self):

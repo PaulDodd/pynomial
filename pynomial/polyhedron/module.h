@@ -1,6 +1,7 @@
 #pragma once
 #include "Polyhedra.h"
 #include "Net.h"
+#include "minkowski.h"
 #include <pynomial/extern/pybind/include/pybind11/pybind11.h>
 #include <pynomial/extern/pybind/include/pybind11/stl_bind.h>
 
@@ -17,6 +18,7 @@ namespace pynomial{
                 .def("Volume", &Polyhedron::Volume)
                 .def("Centroid", &Polyhedron::Centroid)
                 .def("Vertices", &Polyhedron::Vertices)
+                .def("MergeFacets", &Polyhedron::MergeFacets)
                 .def("GetDihedrals", &Polyhedron::GetDihedrals)
             ;
             pybind11::class_<CDihedralAngle, std::shared_ptr<CDihedralAngle> >(m,"_dihedral_angles")
@@ -26,6 +28,11 @@ namespace pynomial{
                 .def("Angle", &CDihedralAngle::GetAngle)
                 ;
             pybind11::bind_vector<CDihedralAngle>(m,"dihedral_angle_vector");
+
+            pybind11::class_<SlopeDiagram, std::shared_ptr<SlopeDiagram> >(m,"_SDR")
+                .def(pybind11::init<const Polyhedron& >())
+                .def(pybind11::init<const SlopeDiagram& >())
+            ;
         }
     }
 }
