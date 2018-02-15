@@ -392,7 +392,7 @@ class CNetwork //: public json::CJSONValueObject<CNetwork>
                 const CNetwork* m_pG;
                 std::vector<size_t>::iterator m_Iter;
             public:
-                vertex_iterator(const CNetwork* pG, size_t src_node, AlgorithmType type = BreadthFirstSearch) : m_pG(pG)
+                vertex_iterator(const CNetwork* pG, size_t src_node, AlgorithmType type = BreadthFirstSearch, std::function<bool(int, int)> func = [](int,int){return true;}) : m_pG(pG)
                 {
                     if(type == BreadthFirstSearch)
                     {
@@ -407,12 +407,12 @@ class CNetwork //: public json::CJSONValueObject<CNetwork>
                             currentNode = processList.front();
                             m_nodes.push_back(currentNode);
                             processList.pop();
-
+                            // std::cout << "processing node " << currentNode << std::endl;
                             const std::vector<size_t>& neighbors = m_pG->GetNeighbors(currentNode);
 
                             for(std::vector<size_t>::const_iterator n = neighbors.cbegin(); n != neighbors.cend(); n++)
                             {
-                                if( !found[*n] ) // distance is not set. means this is a discovered node.
+                                if( !found[*n] && func(currentNode, *n)) // distance is not set. means this is a discovered node.
                                 {
                                     found[*n] = true;
                                     processList.push(*n);
