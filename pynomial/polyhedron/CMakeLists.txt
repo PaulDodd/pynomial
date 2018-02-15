@@ -5,6 +5,7 @@ set(_module_headers
     module.h
     Polyhedra.h
     Net.h
+    minkowski.h
     )
 
 set(files   __init__.py
