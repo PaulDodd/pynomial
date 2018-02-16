@@ -473,11 +473,28 @@ public:
 
     const Eigen::Vector3d& Centroid() { return m_Centroid; }
 
+    Eigen::VectorXd FacetAreas(bool bMerged=false)
+    {
+        if(bMerged && !m_MergedFaces.size())
+            throw std::runtime_error("must merge facets before callign FacetAreas with merged=true");
+
+        Eigen::VectorXd areas(bMerged ? m_MergedFaces.size() : m_Faces.size());
+        areas = Eigen::VectorXd::Zero(bMerged ? m_MergedFaces.size() : m_Faces.size());
+        for(int i = 0; i < m_Faces.size(); i++)
+        {
+            int ai = bMerged ? m_MergeMap[i] : i;
+            areas[ai] += m_FacetArea[i];
+        }
+        // std::cout << areas << std::endl;
+        return areas;
+    }
+
     void GetMergedFaceGraph(graph::CNetwork& g) const
     {
         std::map<size_t, size_t> _;
         std::map<size_t, size_t> __;
-        g = m_FaceGraph.QuotientGraph(m_MergeMap, _ , __ ); }
+        g = m_FaceGraph.QuotientGraph(m_MergeMap, _ , __ );
+    }
 
     void Set(Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> verts)
     {
@@ -610,6 +627,8 @@ private:
 
         // also set the dihedrals and adjacency information.
         m_DihedralAngles.clear();
+        m_FacetArea.clear();
+        m_FacetArea.resize(m_Faces.size(), 0.0);
         for(int i = 0; i < m_Faces.size(); i++)
         {
             int n = m_Faces[i].size();
@@ -628,6 +647,11 @@ private:
                 m_DihedralAngles.push_back(CDihedralAngle(faces[0], faces[1], acos(cosd)));
                 m_FaceGraph.AddEdge(faces[0], faces[1]);
             }
+            Eigen::Vector3d a,b;
+            a = m_Vertices[m_Faces[i][1]] - m_Vertices[m_Faces[i][0]];
+            b = m_Vertices[m_Faces[i][2]] - m_Vertices[m_Faces[i][0]];
+            m_FacetArea[i] =a.cross(b).norm()/2.0;
+            // std::cout << "face area = " << m_FacetArea[i] << std::endl;
         }
     }
 
@@ -806,10 +830,11 @@ private:
     vector< vector<int> >       m_Faces;        // these faces are always triangular
     vector< vector<int> >       m_MergedFaces;  // these faces need not bee triangular
     vector< vector<int> >       m_VertFaces;    // these are faces adjacent to vertex i
-    vector<size_t>       m_MergeMap;    // id of the merged face.
+    vector<size_t>              m_MergeMap;    // id of the merged face.
     vector< Eigen::Vector3d >   m_Vertices;     // the vertex representaion of the polyhedron
     double                      m_volume;       // the volume of the polyhedron
     Eigen::Vector3d             m_Centroid;     // the Centroid of the polyhedron
+    std::vector<double>         m_FacetArea;    // The area of each facet
 
     // vector< vector<int> >       m_Edges;
     vector< vector<int> >       m_AdjFaceIndices;

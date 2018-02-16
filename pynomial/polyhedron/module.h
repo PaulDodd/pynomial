@@ -33,6 +33,13 @@ namespace pynomial{
                 .def(pybind11::init<const Polyhedron& >())
                 .def(pybind11::init<const SlopeDiagram& >())
             ;
+            pybind11::class_<SimilarityResult, std::shared_ptr<SimilarityResult> >(m,"_SimilarityResult")
+                .def(pybind11::init< >())
+                .def_readonly("sigma", &SimilarityResult::sigma)
+                .def_readonly("rotationP", &SimilarityResult::rotationP)
+                .def_readonly("rotationQ", &SimilarityResult::rotationQ)
+            ;
+
         }
     }
 }

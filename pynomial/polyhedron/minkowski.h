@@ -42,7 +42,7 @@ struct support_function
         Eigen::VectorXd dots = verts*v;
         return dots.maxCoeff();
     }
-    Eigen::MatrixXd verts;
+    PointMatrix verts;
 };
 
 struct minkowski_sum
@@ -55,6 +55,9 @@ struct minkowski_sub
 
 struct voulume_ABB
 {
+    double operator()(){
+        return 0.0;
+    }
 };
 
 
@@ -278,11 +281,14 @@ public:
             //                      theta = q2 |-> a (angle about the z axis to make q2 intersect a)
             //                      rot3 = AngleAxis(theta, (0,0,1))
             //                      rot_q = {rot3*rot2}*rot_q;
+
             _type_1_state& state = state_info.state1;
             static const Eigen::Vector3d zhat = {0.0, 0.0, 1.0};
             if(!bfirst) // on the first sweep we need to check the initial state.
                 ++state;
             bfirst = false;
+            brotp = false;
+            brotq = false;
             while(!state.end())
             {
                 if(state.b_rot_p)
@@ -299,6 +305,7 @@ public:
                     arc.PlaneNormal(normal);
                     // std::cout << "n - Normal: \n" << normal << std::endl;
                     state_info.P.Transform(state.rot_p);
+                    brotp = true;
                     // std::cout << "p - point: \n" << &state_info.P.GetPoint(state.p.first) << std::endl;
                     arc.PlaneNormal(normal);
                     // std::cout << "x - Normal: \n" << normal << std::endl;
@@ -313,6 +320,7 @@ public:
                     state_info.Q.writePOS("testQ.pos", std::ios_base::app);
                     // std::cout << "n - Q point\n" << state_info.Q.GetPoint(state.q.first) << std::endl;
                     state_info.Q.Transform(state.rot_q);
+                    brotq = true;
                     // std::cout << "x - Q point\n" << state_info.Q.GetPoint(state.q.first) << std::endl;
                     state_info.Q.writePOS("testQ.pos", std::ios_base::app);
                 }
@@ -414,6 +422,7 @@ public:
                     //             << std::endl;
                     // std::cout << "******* n - Q point\n" << state_info.Q.GetPoint(state.q2.first) << std::endl;
                     state_info.Q.Transform(state.rot_q);
+                    brotq = true;
                     // std::cout << "******* x - Q point\n" << state_info.Q.GetPoint(state.q2.first) << std::endl;
                     // std::cout << "******* x - Q ref point\n" << state_info.Q.GetPoint(state.q.first) << std::endl;
                     // state_info.Q.writePOS("testQ.pos", std::ios_base::app);
@@ -446,8 +455,19 @@ public:
         }
 
         bool end() const { return state_info.state1.end(); }
+
+        bool is_rotationP() const { return brotp; }
+
+        bool is_rotationQ() const { return brotq; }
+
+        const transform_t& rotationP() const { return state_info.rotP; }
+
+        const transform_t& rotationQ() const { return state_info.rotQ; }
+
     private:
         bool bfirst;
+        bool brotp;
+        bool brotq;
     };
 
     const std::vector< arc_t >& GetEdges() const { return m_SphericalEdges; }
@@ -462,16 +482,61 @@ private:
     // std::vector<double> m_EdgeWeights;                  // edge lengths
 };
 
+struct SimilarityResult
+{
+    double sigma;
+    Eigen::Matrix3d rotationP;
+    Eigen::Matrix3d rotationQ;
+};
 
-void SimilarityMeasure(SlopeDiagram P, SlopeDiagram Q)
+SimilarityResult SimilarityMeasure(/*SimilarityResult& result,*/
+                        Polyhedron A,
+                        Polyhedron B,
+                        float tolerance=0.95,
+                        int iteration_max=-1)
 {
     int count = 0;
+    double sigma = 0.0, sigma_max = 0.0;
+    SlopeDiagram P(A);
+    SlopeDiagram Q(B);
+    double VA = pow(A.Volume(), (1.0/3.0));
+    double VB = pow(B.Volume(), (2.0/3.0));
+    double VABB = 1.0;
+    support_function hA(A);
+    Eigen::VectorXd SA = B.FacetAreas(true);
+    Eigen::Matrix3d rotA;
+    Eigen::Matrix3d rotB;
     for(SlopeDiagram::alignment_iterator it(P,Q); !it.end(); ++it )
     {
+        if(it.is_rotationP())
+        {
+            hA.verts = (it.rotationP().rotation()*hA.verts.transpose()).eval().transpose();
+        }
+        Eigen::VectorXd sup(Q.NumPoints());
+        for(int i = 0; i < Q.NumPoints(); i++)
+        {
+            sup[i] = hA(Q.GetPoint(i));
+        }
+        VABB = sup.dot(SA)/3.0;
+        sigma = VA*VB/VABB;
+        if(sigma > sigma_max)
+        {
+            sigma_max = sigma;
+            rotA = it.rotationP().rotation();
+            rotB = it.rotationQ().rotation();
+        }
+
         ++count;
-        // break;
+        if((iteration_max > 0 && count > iteration_max) || sigma_max > tolerance)
+            break;
     }
-    std::cout << "tried "<< count << " rotations!" << std::endl;
+    // std::cout << "tried "<< count << " rotations!" << std::endl;
+    // std::cout << "sigma max = " << sigma_max <<std::endl;
+    // result.reset(new SimilarityResult);
+    // result.sigma = static_cast<float>(sigma_max);
+    // result.rotationP = rotA;
+    // result.rotationQ = rotB;
+    return {sigma_max, rotA, rotB};
 }
 
 

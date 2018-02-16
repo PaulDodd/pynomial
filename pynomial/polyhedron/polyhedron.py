@@ -66,3 +66,8 @@ def distance(A, B):
     """
     AB = intersection(A, B);
     return A.Volume() + B.Volume() - 2.0 * AB.Volume();
+
+def similarity(P, Q, tolerance=0.98, iterations=-1):
+    # result = _polyhedron._SimilarityResult()
+    result = _polyhedron.SimilarityMeasure(P, Q, tolerance, iterations);
+    return (result.sigma, result.rotationP, result.rotationQ);
