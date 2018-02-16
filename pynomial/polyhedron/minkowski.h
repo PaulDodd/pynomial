@@ -506,11 +506,12 @@ SimilarityResult SimilarityMeasure(/*SimilarityResult& result,*/
     Eigen::VectorXd SA = B.FacetAreas(true);
     Eigen::Matrix3d rotA;
     Eigen::Matrix3d rotB;
+    PointMatrix vertsA = A.Vertices().transpose();
     for(SlopeDiagram::alignment_iterator it(P,Q); !it.end(); ++it )
     {
         if(it.is_rotationP())
         {
-            hA.verts = (it.rotationP().rotation()*hA.verts.transpose()).eval().transpose();
+            hA.verts = (it.rotationP().rotation()*vertsA).eval().transpose();
         }
         Eigen::VectorXd sup(Q.NumPoints());
         for(int i = 0; i < Q.NumPoints(); i++)

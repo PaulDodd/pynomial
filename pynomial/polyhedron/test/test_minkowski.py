@@ -11,7 +11,7 @@ for x,y,z in it.product([-1,1], [-1,1], [-1,1]):
 verts = np.array(verts)/2.0;
 print(verts)
 np.random.seed(592765);
-dt = np.random.normal(0, 0.1, verts.shape);
+dt = np.random.normal(0, 0.01, verts.shape);
 print(dt)
 verts2 = verts+dt;
 
