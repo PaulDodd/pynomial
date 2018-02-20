@@ -17,6 +17,8 @@ namespace pynomial{
                 .def("writePOS", &Polyhedron::writePOS)
                 .def("Volume", &Polyhedron::Volume)
                 .def("Centroid", &Polyhedron::Centroid)
+                .def("GetDeterminant", &Polyhedron::GetDeterminant)
+                .def("FacetAreas", &Polyhedron::FacetAreas)
                 .def("Vertices", &Polyhedron::Vertices)
                 .def("MergeFacets", &Polyhedron::MergeFacets)
                 .def("GetDihedrals", &Polyhedron::GetDihedrals)

@@ -54,6 +54,28 @@ class Polyhedron(_polyhedron.polyhedron):
         angles = self.GetDihedrals()
         return [(angles[i].Face0(), angles[i].Face1(), angles[i].Angle()) for i in range(len(angles))]
 
+    @property
+    def centroid(self):
+        return self.Centroid()
+
+    @property
+    def detI(self):
+        return self.GetDeterminant()
+
+    @property
+    def volume(self):
+        return self.Volume()
+
+    @property
+    def facet_areas(self):
+        return self.FacetAreas(False);
+
+    @property
+    def IQ(self):
+        SA = sum(self.facet_areas)
+        V = self.volume;
+        return 36*np.pi*V*V/SA/SA/SA;
+
 def intersection(A, B, inside=(0,0,0)):
     ret = Polyhedron()
     _polyhedron.intersection(A, B, inside, ret);

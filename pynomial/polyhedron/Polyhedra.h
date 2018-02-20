@@ -473,6 +473,8 @@ public:
 
     const Eigen::Vector3d& Centroid() { return m_Centroid; }
 
+    double GetDeterminant() { return m_detI; }
+
     Eigen::VectorXd FacetAreas(bool bMerged=false)
     {
         if(bMerged && !m_MergedFaces.size())
@@ -624,6 +626,7 @@ private:
         mass_properties<Polyhedron> mp(*this);
         m_volume = mp.getVolume();
         m_Centroid = mp.getCenterOfMass();
+        m_detI = mp.getDeterminant();
 
         // also set the dihedrals and adjacency information.
         m_DihedralAngles.clear();
@@ -833,6 +836,7 @@ private:
     vector<size_t>              m_MergeMap;    // id of the merged face.
     vector< Eigen::Vector3d >   m_Vertices;     // the vertex representaion of the polyhedron
     double                      m_volume;       // the volume of the polyhedron
+    double                      m_detI;       // the volume of the polyhedron
     Eigen::Vector3d             m_Centroid;     // the Centroid of the polyhedron
     std::vector<double>         m_FacetArea;    // The area of each facet
 
