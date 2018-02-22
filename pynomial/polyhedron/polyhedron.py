@@ -76,6 +76,9 @@ class Polyhedron(_polyhedron.polyhedron):
         V = self.volume;
         return 36*np.pi*V*V/SA/SA/SA;
 
+    def rotate(self, R):
+        self.Transform(R);
+
 def intersection(A, B, inside=(0,0,0)):
     ret = Polyhedron()
     _polyhedron.intersection(A, B, inside, ret);

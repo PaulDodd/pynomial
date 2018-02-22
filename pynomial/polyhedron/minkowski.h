@@ -371,6 +371,11 @@ public:
                         a = (normal[1]*normal[1]/normal[0]/normal[0]) + 1;
                         b = 2.0*normal[1]*normal[2]*point[2]/normal[0]/normal[0];
                         c = (((normal[2]*normal[2]/normal[0]/normal[0])+1)*point[2])+1.0;
+                        if( b*b < 4.0*a*c) // not sure what to do here.
+                        {
+                            ++state;
+                            continue;
+                        }
                         auto result = quad(a,b,c);
                         x1 = -(result.first*normal[1] + point[2]*normal[2])/normal[0];
                         x2 = -(result.second*normal[1] + point[2]*normal[2])/normal[0];
@@ -402,10 +407,10 @@ public:
                     }
                     else{
 
-                        std::cout << "Neither result is on the arc? logical error? \n ******************** \n"  << std::endl;
-                        arc.On(point_arc, true);
-                        arc.On(point_arc2, true);
-                        std::cout << "\n ******************** \n"  << std::endl;
+                        // std::cout << "Neither result is on the arc? logical error? \n ******************** \n"  << std::endl;
+                        // arc.On(point_arc, true);
+                        // arc.On(point_arc2, true);
+                        // std::cout << "\n ******************** \n"  << std::endl;
                         ++state; // not sure what to do here.
                         continue;
                     }

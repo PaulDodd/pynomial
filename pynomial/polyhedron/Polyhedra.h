@@ -498,6 +498,14 @@ public:
         g = m_FaceGraph.QuotientGraph(m_MergeMap, _ , __ );
     }
 
+    void Transform(const Eigen::Matrix3d& rotation)
+    {
+        for(size_t i = 0; i < m_Vertices.size(); i++)
+        {
+            m_Vertices[i] = (rotation*m_Vertices[i]).eval();
+        }
+    }
+
     void Set(Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> verts)
     {
         vector< Eigen::Vector3d > vs(verts.rows());
@@ -807,9 +815,9 @@ public:
 
     }
 
-    void writePOS(const string& filename, std::ios_base::openmode mode=std::ios_base::out) const
+    void writePOS(const string& filename) const // std::ios_base::openmode mode=std::ios_base::out
     {
-        std::ofstream file(filename, mode);
+        std::ofstream file(filename, std::ios_base::out);
         std::stringstream ss, connections;
         ss << "def "<< m_Name << " \"poly3d " << m_Vertices.size() << " ";
         std::string center_sphere  = "def origin \"sphere 0.1 005F5F5F\"";

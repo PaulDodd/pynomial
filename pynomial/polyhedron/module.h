@@ -22,6 +22,7 @@ namespace pynomial{
                 .def("Vertices", &Polyhedron::Vertices)
                 .def("MergeFacets", &Polyhedron::MergeFacets)
                 .def("GetDihedrals", &Polyhedron::GetDihedrals)
+                .def("Transform", &Polyhedron::Transform)
             ;
             pybind11::class_<CDihedralAngle, std::shared_ptr<CDihedralAngle> >(m,"_dihedral_angles")
                 .def(pybind11::init<size_t, size_t, double>())
