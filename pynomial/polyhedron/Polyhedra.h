@@ -68,6 +68,12 @@ public:
         return a.dot(b.cross(c));
         }
 
+    double getTrace()
+        {
+        Eigen::Vector3d a(m_inertia[0], m_inertia[3], m_inertia[5]), b(m_inertia[3], m_inertia[1], m_inertia[4]), c(m_inertia[5], m_inertia[4], m_inertia[2]);
+        return m_inertia[0]+m_inertia[1]+m_inertia[2];
+        }
+
 protected:
     virtual void compute() {throw std::runtime_error("mass_properties::compute() is not implemented for this shape.");}
     double m_volume;
@@ -385,14 +391,51 @@ public:
 */
     const vector< vector<int> >& GetFaces() const { return m_Faces; }
 
+    const vector< vector<int> >& GetMergedFaces() const { return m_MergedFaces; }
+
+    const vector< size_t >& GetMergedFacesMap() const { return m_MergeMap; }
+
     const vector< Eigen::Vector3d >& GetVertices() const { return m_Vertices; }
 
-    PointMatrix Vertices(bool shift=false, bool scale=false) const
+    Eigen::VectorXd Curvature() const
     {
-        double s = scale ? pow((1.0/m_volume), (1.0/3.0)) : 1.0;
+        Eigen::VectorXd curves = Eigen::VectorXd(m_Vertices.size()).setZero();
+        Eigen::VectorXd two_pi = Eigen::VectorXd(m_Vertices.size()).setConstant(2.0*M_PI);
+        for(size_t v = 0; v < m_Vertices.size(); v++)
+        {
+            for(size_t vf = 0; vf < m_VertFaces[v].size(); vf++)
+            {
+                size_t f = m_VertFaces[v][vf];
+                size_t nf = m_Faces[f].size();
+                for(size_t i = 0; i < nf; i++)
+                {
+                    if(m_Faces[f][i] == v)
+                    {
+                        size_t a = (i == 0) ? m_Faces[f][nf-1] : m_Faces[f][i-1];
+                        size_t b = (i+1 == nf) ? m_Faces[f][0] : m_Faces[f][i+1];
+                        Eigen::Vector3d va, vb;
+                        va = m_Vertices[a] - m_Vertices[v];
+                        va.normalize();
+                        vb = m_Vertices[b] - m_Vertices[v];
+                        vb.normalize();
+                        // std::cout << v << " -- "<< f << ", " << i <<", ("<< a << ", " << b << "): va.vb=" << va.dot(vb) << ", "<< acos(va.dot(vb)) << std::endl;
+
+                        curves[v] += acos(va.dot(vb));
+                        i = nf;
+                    }
+                }
+            }
+        }
+        // std::cout << (two_pi - curves).sum() << std::endl;
+        return two_pi - curves;
+    }
+
+    PointMatrix Vertices(bool shift=false, bool unit_volume=false) const
+    {
+        double s = unit_volume ? pow((1.0/m_volume), (1.0/3.0)) : 1.0;
         PointMatrix verts(m_Vertices.size(), 3);
         for(int i = 0; i < m_Vertices.size(); i++)
-            verts.row(i) = shift ? m_Vertices[i] - m_Centroid : m_Vertices[i];
+            verts.row(i) = shift ? m_Vertices[i] + m_Centroid : m_Vertices[i];
         return s*verts;
     }
 
@@ -410,7 +453,13 @@ public:
         // std::cout << "normals: \n" << normals << std::endl;
         // return normals;
     }
+    PointMatrix GetFacetNormals(bool bMerged=false) const
+    {
+        PointMatrix normals;
+        FacetNormals(normals, bMerged);
+        return normals;
 
+    }
     void MergeFacets(double threshold=1e-6, bool bForce=true)
     {
         if(m_MergedFaces.size() && !bForce)
@@ -474,6 +523,7 @@ public:
     const Eigen::Vector3d& Centroid() { return m_Centroid; }
 
     double GetDeterminant() { return m_detI; }
+    double GetTrace() { return m_trI; }
 
     Eigen::VectorXd FacetAreas(bool bMerged=false)
     {
@@ -635,6 +685,12 @@ private:
         m_volume = mp.getVolume();
         m_Centroid = mp.getCenterOfMass();
         m_detI = mp.getDeterminant();
+        m_trI = mp.getTrace();
+
+        for(size_t i = 0; i < m_Vertices.size(); i++)
+        {
+            m_Vertices[i] -= m_Centroid;
+        }
 
         // also set the dihedrals and adjacency information.
         m_DihedralAngles.clear();
@@ -845,6 +901,7 @@ private:
     vector< Eigen::Vector3d >   m_Vertices;     // the vertex representaion of the polyhedron
     double                      m_volume;       // the volume of the polyhedron
     double                      m_detI;       // the volume of the polyhedron
+    double                      m_trI;       // the volume of the polyhedron
     Eigen::Vector3d             m_Centroid;     // the Centroid of the polyhedron
     std::vector<double>         m_FacetArea;    // The area of each facet
 

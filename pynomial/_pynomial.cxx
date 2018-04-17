@@ -40,6 +40,7 @@ PYBIND11_PLUGIN(_pynomial)
     safe_bind_vector<unsigned int>(m,"std_vector_uint");
     safe_bind_vector<unsigned long>(m,"std_vector_ul");
     safe_bind_vector<int>(m,"std_vector_int");
+    safe_bind_vector< std::vector<int> >(m,"std_vector2d_int");
     // safe_bind_vector<Eigen::VectorXd>(m, 'std_vector_eigen_vectorXd');
     // safe_bind_vector<Eigen::Vector3d>(m, 'std_vector_eigen_vector3d');
     // pybind11::bind_vector<Scalar3>(m,"std_vector_scalar3");

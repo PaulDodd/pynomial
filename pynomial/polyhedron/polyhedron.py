@@ -49,10 +49,20 @@ class Polyhedron(_polyhedron.polyhedron):
     def vertices(self):
         return self.Vertices(False, False);
 
-    @property
-    def dihedral_angles(self):
+    def dihedral_angles(self, merged=False):
         angles = self.GetDihedrals()
-        return [(angles[i].Face0(), angles[i].Face1(), angles[i].Angle()) for i in range(len(angles))]
+        if merged:
+            mergeMap = self.GetMergedFacesMap()
+        da = [];
+        for i in range(len(angles)):
+            f1, f2, d = (angles[i].Face0(), angles[i].Face1(), angles[i].Angle())
+            if merged and mergeMap[f1] == mergeMap[f2]: # skip faces that have been merged together
+                continue;
+            elif merged:
+                f1 = mergeMap[f1]
+                f2 = mergeMap[f2]
+            da.append((f1, f2, d))
+        return da
 
     @property
     def centroid(self):
@@ -63,21 +73,31 @@ class Polyhedron(_polyhedron.polyhedron):
         return self.GetDeterminant()
 
     @property
+    def trI(self):
+        return self.GetTrace()
+
+    @property
     def volume(self):
         return self.Volume()
 
-    @property
-    def facet_areas(self):
+    def facet_areas(self, merged = True):
         return self.FacetAreas(False);
 
     @property
     def IQ(self):
-        SA = sum(self.facet_areas)
+        SA = sum(self.facet_areas(False))
         V = self.volume;
         return 36*np.pi*V*V/SA/SA/SA;
 
+    @property
+    def curvature(self):
+        return self.Curvature();
+
     def rotate(self, R):
         self.Transform(R);
+
+    def facet_normals(self, merged):
+        return self.GetFacetNormals(merged)
 
 def intersection(A, B, inside=(0,0,0)):
     ret = Polyhedron()
@@ -90,7 +110,7 @@ def distance(A, B):
     for unit volume 2.0(1-V(AB))
     """
     AB = intersection(A, B);
-    return A.Volume() + B.Volume() - 2.0 * AB.Volume();
+    return max(A.Volume() + B.Volume() - 2.0 * AB.Volume(), 0.0);
 
 def similarity(P, Q, tolerance=0.98, iterations=-1):
     # result = _polyhedron._SimilarityResult()
