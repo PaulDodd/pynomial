@@ -4,6 +4,7 @@
 #include <vector>
 #include <random>
 #include <algorithm>
+#include <chrono>
 // eigen include
 #include <eigen3/Eigen/Dense>
 #include <eigen3/Eigen/Sparse>
